@@ -30,6 +30,32 @@ const allHands = [
   'A2o', 'K2o', 'Q2o', 'J2o', 'T2o', '92o', '82o', '72o', '62o', '52o', '42o', '32o', '22'
 ];
 
+/**
+ * Calculates the number of combinations for a given poker hand notation.
+ * - Pocket pairs (e.g., 'AA'): 6 combos
+ * - Suited hands (e.g., 'AKs'): 4 combos
+ * - Off-suited hands (e.g., 'AKo'): 12 combos
+ */
+const getCombinationsForHand = (hand: string): number => {
+  // e.g., 'AKs' or 'AKo'
+  if (hand.length === 3) {
+    if (hand[2] === 's') return 4;
+    if (hand[2] === 'o') return 12;
+  }
+  // e.g., 'AA'
+  if (hand.length === 2 && hand[0] === hand[1]) {
+    return 6;
+  }
+  // Should not be reached with valid notations from `allHands`
+  return 0;
+};
+
+// Create a weighted list of all 1326 possible hand combinations
+const allPossibleHands = allHands.flatMap(hand => {
+  const combos = getCombinationsForHand(hand);
+  return Array(combos).fill(hand);
+});
+
 const getActionColor = (actionId: string, allButtons: ActionButton[]): string => {
     if (actionId === 'fold') return '#6b7280';
     const button = allButtons.find(b => b.id === actionId);
@@ -96,11 +122,12 @@ export const TrainingSession = ({ training, onStop }: TrainingSessionProps) => {
   const generateHands = () => {
     if (training.type === 'classic') {
       if (training.subtype === 'all-hands') {
-        return [...allHands].sort(() => Math.random() - 0.5);
+        // Shuffle the full list of 1326 hand categories, weighted by their frequency
+        return [...allPossibleHands].sort(() => Math.random() - 0.5);
       } else if (training.subtype === 'border-check') {
         // Generate hands near range borders (2 cells away)
-        const borderHands = [];
-        // Implementation for border check logic would go here
+        // The current implementation is a placeholder, but we'll keep it for now.
+        // It just takes a random slice of the 169 categories.
         return allHands.sort(() => Math.random() - 0.5).slice(0, 20);
       }
     }
