@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Play, Trash2 } from "lucide-react";
+import { Play, Trash2, BarChart2 } from "lucide-react";
 import { CreateTrainingDialog } from "./CreateTrainingDialog";
 import { cn } from "@/lib/utils";
 import {
@@ -175,37 +175,72 @@ export const Training = ({ isMobileMode = false }: TrainingProps) => {
             ) : (
               trainings.map((training) => {
                 const stats = getTrainingStats(training.id);
+                const isSelected = selectedTraining === training.id;
                 return (
                   <Card 
                     key={training.id} 
-                    className={`p-3 cursor-pointer transition-colors ${
-                      selectedTraining === training.id ? 'bg-primary/10 border-primary' : 'hover:bg-muted/50'
-                    }`}
-                    onClick={() => setSelectedTraining(training.id)}
+                    className={cn(
+                      'p-3 cursor-pointer transition-all duration-300',
+                      isSelected ? 'bg-primary/10 border-primary' : 'hover:bg-muted/50'
+                    )}
+                    onClick={() => setSelectedTraining(prev => prev === training.id ? null : training.id)}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 overflow-hidden">
                         <h4 className="font-medium">{training.name}</h4>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {training.type === 'classic' ? 'Классическая' : 'Повторение границ'}
-                          {training.subtype && ` • ${training.subtype === 'all-hands' ? 'Все руки' : 'Проверка границ'}`}
-                        </div>
-                        {stats && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Точность: {stats.accuracy}% • Сессий: {stats.sessions}
+                        <div className={cn(
+                          "transition-all duration-300 ease-in-out",
+                          isMobileMode
+                            ? (isSelected ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0")
+                            : "max-h-40 opacity-100 mt-1" // Always visible on desktop
+                        )}>
+                          <div className="text-xs text-muted-foreground">
+                            {training.type === 'classic' ? 'Классическая' : 'Повторение границ'}
+                            {training.subtype && ` • ${training.subtype === 'all-hands' ? 'Все руки' : 'Проверка границ'}`}
                           </div>
-                        )}
+                          {stats && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Точность: {stats.accuracy}% • Сессий: {stats.sessions}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteTraining(training.id);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center">
+                        {isMobileMode && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTraining(training.id);
+                              }}
+                            >
+                              <BarChart2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartTraining(training.id);
+                              }}
+                            >
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteTraining(training.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 );
@@ -223,134 +258,138 @@ export const Training = ({ isMobileMode = false }: TrainingProps) => {
         </div>
 
         {/* Main Content */}
-        <div className={cn(
-          "p-6",
-          isMobileMode ? "order-1 flex-1" : "flex-1 overflow-y-auto"
-        )}>
+        {(!isMobileMode || selectedTraining) && (
           <div className={cn(
-            "mx-auto space-y-6",
-            isMobileMode ? "max-w-full" : "max-w-4xl"
+            "p-6",
+            isMobileMode ? "order-1 flex-1" : "flex-1 overflow-y-auto"
           )}>
-            {selectedTraining ? (
-              <div>
-                {(() => {
-                  const training = trainings.find(t => t.id === selectedTraining);
-                  if (!training) return null;
-                  
-                  const stats = getTrainingStats(training.id);
-                  
-                  return (
-                    <div className="space-y-6">
-                      <div className="text-center">
-                        <h1 className={cn(
-                          "font-bold mb-2",
-                          isMobileMode ? "text-xl" : "text-2xl"
-                        )}>{training.name}</h1>
-                        <p className={cn(
-                          "text-muted-foreground",
-                          isMobileMode && "text-sm"
-                        )}>
-                          {training.type === 'classic' ? 'Классическая тренировка' : 'Тренировка повторения границ'}
-                          {training.subtype && ` • ${training.subtype === 'all-hands' ? 'Все руки' : 'Проверка границ'}`}
-                        </p>
-                      </div>
-
-                      {/* Training Stats */}
-                      {stats ? (
-                        <Card className="p-6">
-                          <h3 className="text-lg font-semibold mb-4">Статистика всех сессий</h3>
-                          <div className={cn(
-                            "gap-4 text-center",
-                            isMobileMode ? "grid grid-cols-2 space-y-2" : "grid grid-cols-4"
+            <div className={cn(
+              "mx-auto space-y-6",
+              isMobileMode ? "max-w-full" : "max-w-4xl"
+            )}>
+              {selectedTraining ? (
+                <div>
+                  {(() => {
+                    const training = trainings.find(t => t.id === selectedTraining);
+                    if (!training) return null;
+                    
+                    const stats = getTrainingStats(training.id);
+                    
+                    return (
+                      <div className="space-y-6">
+                        <div className="text-center">
+                          <h1 className={cn(
+                            "font-bold mb-2",
+                            isMobileMode ? "text-xl" : "text-2xl"
+                          )}>{training.name}</h1>
+                          <p className={cn(
+                            "text-muted-foreground",
+                            isMobileMode && "text-sm"
                           )}>
-                            <div>
-                              <div className="text-2xl font-bold text-primary">{stats.accuracy}%</div>
-                              <div className="text-sm text-muted-foreground">Точность</div>
-                            </div>
-                            <div>
-                              <div className="text-2xl font-bold text-primary">{stats.hands}</div>
-                              <div className="text-sm text-muted-foreground">Рук сыграно</div>
-                            </div>
-                            <div>
-                              <div className="text-2xl font-bold text-primary">{stats.time}</div>
-                              <div className="text-sm text-muted-foreground">Среднее время</div>
-                            </div>
-                            <div>
-                              <div className="text-2xl font-bold text-primary">{stats.sessions}</div>
-                              <div className="text-sm text-muted-foreground">Сессий</div>
-                            </div>
-                          </div>
-                        </Card>
-                      ) : (
-                        <Card className="p-6 text-center text-muted-foreground">
-                          Начните тренировку, чтобы собрать статистику.
-                        </Card>
-                      )}
+                            {training.type === 'classic' ? 'Классическая тренировка' : 'Тренировка повторения границ'}
+                            {training.subtype && ` • ${training.subtype === 'all-hands' ? 'Все руки' : 'Проверка границ'}`}
+                          </p>
+                        </div>
 
-                      {/* Start Training Button */}
-                      <div className="text-center">
-                        <Button 
-                          size="lg" 
-                          variant="poker"
-                          onClick={() => handleStartTraining(training.id)}
-                        >
-                          <Play className="h-5 w-5 mr-2" />
-                          Запустить тренировку
-                        </Button>
-                      </div>
-
-                      {/* Detailed Session History (PC only) */}
-                      {!isMobileMode && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>История сессий</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            {detailedStats.length > 0 ? (
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead className="w-[100px]">Сессия</TableHead>
-                                    <TableHead>Дата</TableHead>
-                                    <TableHead>Время</TableHead>
-                                    <TableHead className="text-right">Точность</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {detailedStats.map((session, index) => (
-                                    <TableRow key={session.timestamp}>
-                                      <TableCell className="font-medium">{detailedStats.length - index}</TableCell>
-                                      <TableCell>{formatSessionDate(session.timestamp)}</TableCell>
-                                      <TableCell>{formatSessionDuration(session.duration)}</TableCell>
-                                      <TableCell className="text-right">
-                                        {calculateSessionAccuracy(session.correctAnswers, session.totalQuestions)}%
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            ) : (
-                              <div className="text-center text-muted-foreground py-8">
-                                Нет данных о сессиях для этой тренировки.
+                        {/* Training Stats */}
+                        {stats ? (
+                          <Card className="p-6">
+                            <h3 className="text-lg font-semibold mb-4">Статистика всех сессий</h3>
+                            <div className={cn(
+                              "gap-4 text-center",
+                              isMobileMode ? "grid grid-cols-2 space-y-2" : "grid grid-cols-4"
+                            )}>
+                              <div>
+                                <div className="text-2xl font-bold text-primary">{stats.accuracy}%</div>
+                                <div className="text-sm text-muted-foreground">Точность</div>
                               </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center text-muted-foreground">
-                  <h2 className="text-xl font-semibold">Тренировка ренжей</h2>
-                  <p>Выберите тренировку из списка слева или создайте новую.</p>
+                              <div>
+                                <div className="text-2xl font-bold text-primary">{stats.hands}</div>
+                                <div className="text-sm text-muted-foreground">Рук сыграно</div>
+                              </div>
+                              <div>
+                                <div className="text-2xl font-bold text-primary">{stats.time}</div>
+                                <div className="text-sm text-muted-foreground">Среднее время</div>
+                              </div>
+                              <div>
+                                <div className="text-2xl font-bold text-primary">{stats.sessions}</div>
+                                <div className="text-sm text-muted-foreground">Сессий</div>
+                              </div>
+                            </div>
+                          </Card>
+                        ) : (
+                          <Card className="p-6 text-center text-muted-foreground">
+                            Начните тренировку, чтобы собрать статистику.
+                          </Card>
+                        )}
+
+                        {/* Start Training Button */}
+                        <div className="text-center">
+                          <Button 
+                            size="lg" 
+                            variant="poker"
+                            onClick={() => handleStartTraining(training.id)}
+                          >
+                            <Play className="h-5 w-5 mr-2" />
+                            Запустить тренировку
+                          </Button>
+                        </div>
+
+                        {/* Detailed Session History (PC only) */}
+                        {!isMobileMode && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle>История сессий</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              {detailedStats.length > 0 ? (
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="w-[100px]">Сессия</TableHead>
+                                      <TableHead>Дата</TableHead>
+                                      <TableHead>Время</TableHead>
+                                      <TableHead className="text-right">Точность</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {detailedStats.map((session, index) => (
+                                      <TableRow key={session.timestamp}>
+                                        <TableCell className="font-medium">{detailedStats.length - index}</TableCell>
+                                        <TableCell>{formatSessionDate(session.timestamp)}</TableCell>
+                                        <TableCell>{formatSessionDuration(session.duration)}</TableCell>
+                                        <TableCell className="text-right">
+                                          {calculateSessionAccuracy(session.correctAnswers, session.totalQuestions)}%
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              ) : (
+                                <div className="text-center text-muted-foreground py-8">
+                                  Нет данных о сессиях для этой тренировки.
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
-              </div>
-            )}
+              ) : (
+                !isMobileMode && (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-muted-foreground">
+                      <h2 className="text-xl font-semibold">Тренировка ренжей</h2>
+                      <p>Выберите тренировку из списка слева или создайте новую.</p>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <CreateTrainingDialog

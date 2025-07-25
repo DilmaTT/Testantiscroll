@@ -296,7 +296,7 @@ export const TrainingSession = ({ training, onStop }: TrainingSessionProps) => {
 
   if (!currentRange) {
     return (
-      <div className="h-screen bg-background flex items-center justify-center">
+      <div className="h-full bg-background flex items-center justify-center">
         <Card className="p-6 text-center">
           <p className="text-lg text-muted-foreground">Ренжи для тренировки не найдены</p>
           <Button onClick={onStop} className="mt-4">Вернуться</Button>
@@ -306,7 +306,7 @@ export const TrainingSession = ({ training, onStop }: TrainingSessionProps) => {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col sm:flex-row">
+    <div className="h-full bg-background flex flex-col sm:flex-row">
       {/* Desktop sidebar with stats */}
       <div className="hidden sm:block w-80 bg-card border-r p-4 space-y-4">
         <div className="flex items-center justify-between">
