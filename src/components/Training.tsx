@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Play, Trash2, BarChart2 } from "lucide-react";
@@ -13,8 +13,8 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { TrainingSession } from "./TrainingSession";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-// --- Original Training Component ---
 
 interface TrainingProps {
   isMobileMode?: boolean;
@@ -44,13 +44,16 @@ export const Training = ({ isMobileMode = false }: TrainingProps) => {
   const [activeTraining, setActiveTraining] = useState<any>(null);
   const [detailedStats, setDetailedStats] = useState<SessionStat[]>([]);
   const [statsVersion, setStatsVersion] = useState(0);
+  const [statsModalTrainingId, setStatsModalTrainingId] = useState<string | null>(null);
+  const [modalStats, setModalStats] = useState<SessionStat[]>([]);
+  const statsModalTraining = trainings.find(t => t.id === statsModalTrainingId);
 
   // Save trainings to localStorage when they change
   useEffect(() => {
     localStorage.setItem('training-sessions', JSON.stringify(trainings));
   }, [trainings]);
 
-  // Fetch detailed stats when a training is selected or when stats are updated
+  // Fetch detailed stats for main view
   useEffect(() => {
     if (selectedTraining) {
       const allStats = JSON.parse(localStorage.getItem('training-statistics') || '[]') as SessionStat[];
@@ -62,6 +65,19 @@ export const Training = ({ isMobileMode = false }: TrainingProps) => {
       setDetailedStats([]);
     }
   }, [selectedTraining, statsVersion]);
+
+  // Fetch stats for modal view
+  useEffect(() => {
+    if (statsModalTrainingId) {
+      const allStats = JSON.parse(localStorage.getItem('training-statistics') || '[]') as SessionStat[];
+      const trainingStats = allStats
+        .filter((stat) => stat.trainingId === statsModalTrainingId)
+        .sort((a, b) => b.timestamp - a.timestamp);
+      setModalStats(trainingStats);
+    } else {
+      setModalStats([]);
+    }
+  }, [statsModalTrainingId]);
 
 
   // Calculate and update training statistics
@@ -118,6 +134,22 @@ export const Training = ({ isMobileMode = false }: TrainingProps) => {
     setStatsVersion(v => v + 1);
   };
 
+  const formatLongDuration = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}ч`);
+    if (minutes > 0) parts.push(`${minutes}м`);
+    if (seconds > 0 || totalSeconds === 0) {
+        parts.push(`${seconds}с`);
+    }
+    
+    return parts.join(' ') || '0с';
+  };
+
   const formatSessionDuration = (duration: number) => {
     const minutes = Math.floor(duration / 60000);
     const seconds = Math.floor((duration % 60000) / 1000);
@@ -136,6 +168,19 @@ export const Training = ({ isMobileMode = false }: TrainingProps) => {
     if (total === 0) return '0.0';
     return ((correct / total) * 100).toFixed(1);
   };
+
+  const summaryStats = useMemo(() => {
+    if (modalStats.length === 0) {
+      return { totalDuration: 0, totalAccuracy: 0 };
+    }
+
+    const totalDuration = modalStats.reduce((acc, stat) => acc + stat.duration, 0);
+    const totalCorrect = modalStats.reduce((acc, stat) => acc + stat.correctAnswers, 0);
+    const totalQuestions = modalStats.reduce((acc, stat) => acc + stat.totalQuestions, 0);
+    const totalAccuracy = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
+
+    return { totalDuration, totalAccuracy };
+  }, [modalStats]);
 
   if (activeTraining) {
     return (
@@ -213,7 +258,7 @@ export const Training = ({ isMobileMode = false }: TrainingProps) => {
                               variant="ghost"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedTraining(training.id);
+                                setStatsModalTrainingId(training.id);
                               }}
                             >
                               <BarChart2 className="h-4 w-4" />
@@ -397,6 +442,57 @@ export const Training = ({ isMobileMode = false }: TrainingProps) => {
         onOpenChange={setShowCreateDialog}
         onCreateTraining={handleCreateTraining}
       />
+
+      {isMobileMode && (
+        <Dialog open={!!statsModalTrainingId} onOpenChange={(isOpen) => { if (!isOpen) setStatsModalTrainingId(null); }}>
+          <DialogContent mobileFullscreen className="flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle>{statsModalTraining?.name}</DialogTitle>
+              <DialogDescription>История сессий</DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto -mx-6 px-6">
+              {modalStats.length > 0 ? (
+                <div className="space-y-2 py-4">
+                  {modalStats.map((session, index) => (
+                    <Card key={session.timestamp} className="p-3">
+                      <div className="grid grid-cols-3 items-center gap-4 text-sm">
+                        <div className="font-medium">
+                          <p>Сессия {modalStats.length - index}</p>
+                          <p className="text-xs text-muted-foreground">{formatSessionDate(session.timestamp)}</p>
+                        </div>
+                        <div className="text-center text-muted-foreground">
+                          {formatSessionDuration(session.duration)}
+                        </div>
+                        <div className="text-right font-semibold">
+                          {calculateSessionAccuracy(session.correctAnswers, session.totalQuestions)}%
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-center text-muted-foreground">
+                  Нет данных о сессиях для этой тренировки.
+                </div>
+              )}
+            </div>
+            {modalStats.length > 0 && (
+              <div className="flex-shrink-0 border-t mt-auto p-4 bg-card/50">
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Общее время</div>
+                    <div className="text-lg font-bold">{formatLongDuration(summaryStats.totalDuration)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Общая точность</div>
+                    <div className="text-lg font-bold">{summaryStats.totalAccuracy.toFixed(1)}%</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };
